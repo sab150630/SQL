@@ -1,4 +1,4 @@
-Write a SQL query to get the nth highest salary from the Employee table.
+1)  Write a SQL query to get the nth highest salary from the Employee table.
 CREATE FUNCTION getNthHighestSalary(@N INT) RETURNS INT AS
 BEGIN
     RETURN (
@@ -12,4 +12,67 @@ BEGIN
                  
     );
 END
+
+
+
+2)Write a SQL query to rank scores. If there is a tie between two scores, both should have the same ranking. 
+Note that after a tie, the next ranking number should be the next consecutive integer value. In other words, there should be no "holes" between ranks.
+/* Write your T-SQL query statement below */
+ SELECT Score,
+ DENSE_RANK() OVER(ORDER BY SCORE DESC) as Rank
+ FROM Scores
+ 
+ 
+ 3)Write a SQL query to find all numbers that appear at least three times consecutively.
+ 
+ /* Write your T-SQL query statement below */
+
+SELECT DISTINCT NUM as ConsecutiveNums 
+FROM
+    (
+
+        SELECT id, num,
+        lead(num,1) over(order by id) as next_num,
+        lead(num,2) over(order by id) as subnum
+        from logs
+)t
+where num = next_num and next_num = subnum
+
+
+4) Write a SQL query to find employees who have the highest salary in each of the departments. 
+/* Write your T-SQL query statement below */
+
+SELECT DEPARTMENT,EMPLOYEE, SALARY
+FROM
+(
+    SELECT D.NAME AS DEPARTMENT,e.NAME as EMPLOYEE,SALARY,
+    RANK() OVER(PARTITION BY D.NAME ORDER BY SALARY DESC) as rnk
+    FROM Employee e
+    INNER JOIN DEPARTMENT d
+    on e.DepartmentID = d.ID
+    
+)t
+where rnk = 1
+ORDER BY EMPLOYEE ASC
+
+
+5) Write a SQL query to find employees who earn the top three salaries in each of the department.
+/* Write your T-SQL query statement below */
+
+SELECT DEPARTMENT,EMPLOYEE, SALARY
+FROM
+(
+
+    SELECT D.NAME AS DEPARTMENT,e.NAME as EMPLOYEE,SALARY,
+    DENSE_RANK() OVER(PARTITION BY D.NAME ORDER BY SALARY DESC) as rnk
+    FROM Employee e
+    INNER JOIN DEPARTMENT d
+    on e.DepartmentID = d.ID
+)t
+where rnk <=3
+ORDER BY DEPARTMENT 
+
+
+
+
 
