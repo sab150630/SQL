@@ -1,0 +1,15 @@
+Write a SQL query to get the nth highest salary from the Employee table.
+CREATE FUNCTION getNthHighestSalary(@N INT) RETURNS INT AS
+BEGIN
+    RETURN (
+        /* Write your T-SQL query statement below. */
+        SELECT
+        COALESCE((SELECT DISTINCT SALARY 
+                 FROM 
+                    (SELECT SALARY, DENSE_RANK() OVER(ORDER BY SALARY DESC) as DENSE_RNK FROM Employee)t
+                 WHERE DENSE_RNK = @N
+                ),NULL) AS getNthHighestSalary
+                 
+    );
+END
+
