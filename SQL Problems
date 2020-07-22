@@ -72,7 +72,238 @@ FROM
 where rnk <=3
 ORDER BY DEPARTMENT 
 
+6)  Write an SQL query that reports for each player and date, how many games played so far by the player. That is, the total number of games played by the player until that date.
+
+/* Write your T-SQL query statement below */
+SELECT player_id, event_date, 
+SUM(games_played) over(partition by player_id order by event_date) as games_played_so_far
+FROM Activity
+
+7)  Get me all products that got sold both the days and the number of times the product is sold
+
+select o.product_id, count(*) cnt from test.orders as o where o.product_id in (
+select product_id from test.orders where order_day ='2011-07-01'
+
+intersect
+
+select product_id from test.orders where order_day ='2011-07-02')
+group by o.product_id
+
+
+8)  Get me products that was ordered on 02-Jul-11  but not on 01-Jul-11
+    desired output
+
+select product_id from test.orders where order_day ='2011-07-02'
+except
+select product_id from test.orders where order_day ='2011-07-01'
+
+
+9)  Get me highest sold Products (Qty* Price) on both days
+select order_day, product_id , max(quantity * price)  over (partition by order_day, product_id) as amount
+from test.orders
+order by amount desc
+offset 0 rows fetch next 2 rows only
+
+10) Get me for all products, total sales on 01-JUL-11 and 02-JUL-11 adjacent to each other
+select T.product_id , max(T.sum1) as Day1, max(T.sum2) as Day2 from (
+select product_id, sum (quantity * price ) over (partition by order_day, product_id) as sum1 , 0 as sum2
+from test.orders 
+where order_day='2011-07-01'
+union 
+select product_id, 0 as sum1,sum (quantity * price ) over (partition by order_day, product_id) as sum2
+from test.orders 
+where order_day='2011-07-02'
+) as T
+group by T.product_id
+
+
+11) Get me all products daywise, that was ordered more than once
+
+select order_day,product_id
+from test.orders
+group by order_day,product_id 
+having count(*)>1
+
+12) Please provide SQL which will explode the above data into single unit level records as shown below
+with cte as
+(
+select order_id, item, quantity , 1 as lvl
+from test.simple_orders 
+union all
+select m.order_id, m.item, m.quantity , s.lvl+1 as lvl
+from cte s
+join test.simple_orders  as m
+on s.order_id=m.order_id and s.item=m.item and s.lvl < m.quantity
+)
+select order_id,item, 1 as quntiti from cte order by order_id
+
+13) Write a SQL that will give the top product by sales in each of the product groups and additionally gather GV, Inventory, and ad spend measures also for the product
+
+select a.product_group, a.product_id,a.sales_amt, isnull(g.GLANCE_VIEWS,0) as GLANCE_VIEWS,
+ isnull(I.ON_HAND_QUANTITY,0) as inventory,
+isnull(ad.AD_SPENT,0) as AD_SPENT from 
+(
+select p.product_group,p.product_id, s.sales_amt, rank() over (partition by p.product_group
+order by s.sales_amt desc) as rank 
+from  test. product as p left outer join test.sales_fact S on p.product_id=s.product_id) as a
+left outer join test.Glance_view_fact as g on a.product_id=g.product_id
+left outer join test.Inventory_fact as I  on a.product_id=I.product_id
+left outer join test.Ad_spend_fact as ad on a.product_id=ad.product_id
+where rank = 1
+
+14) Write a SQL to give all Products that have glance views but no sales
+select P.product_id
+from test.product as P join test.Glance_view_fact as G on P.product_id = G.product_id
+
+except
+
+select P.product_id
+from test.product as P join test.sales_fact as S on P.product_id = s.product_id
+
+
+15) Write a SQL to give the sales of Electronics as a Percentage of Books
+select (E.sames_amt/B.sames_amt * 100 ) as output  from 
+(
+select P.product_group, sum(s.sales_amt) sames_amt
+from test.product as P left outer join  test.Sales_fact S on p.product_id=s.product_id
+where P.product_group ='Book'
+group by P.product_group ) B,
+
+(select P.product_group, sum(s.sales_amt) sames_amt
+from test.product as P left outer join  test.Sales_fact S on p.product_id=s.product_id
+where P.product_group ='Electronics'
+group by P.product_group ) E where 1=1
+
+
+16) See a Phone Log table as below. It records all phone numbers that we dial in a given day.
+
+select distinct A.source_phone_number, 
+case  when A.first_val=A.last_val then 'Y'  else 'N' end  as flag
+from
+(select source_phone_number ,
+FIRST_VALUE(destination_phone_number) over (partition by  source_phone_number  order by source_phone_number ) as first_val,
+Last_VALUE(destination_phone_number) over (partition by  source_phone_number  order by source_phone_number ) as last_val
+from test.phone_log) as A
 
 
 
+17) Problem Monorail :
+PROBLEM 1: UNDERPAID EMPLOYEE :
+ Find the names of employees (â€œenameâ€) whose salary is less than the price (â€œcostâ€) of cheapest route from â€˜Bangaloreâ€™ to â€˜Delhiâ€™ (No need to consider route with connections).
+ 
+ select e.ename, *
+from test.employee as e where e.salary < (select min (r.cost) from test.route_info as r 
+where r.origin='Banglore' and r.destination ='Delhi' )
+
+
+18) PROBLEM 2: ONE STOP ROUTE:
+ Find one stop from â€˜Bangaloreâ€™ to â€˜Delhiâ€™. The route will need to make one stop transfer and donâ€™t need to consider time and cost. Query should return two columns : first section route_no and second section route_no.
+ 
+ select a.route_no as first_route_no, b.route_no as second_route_no
+from test.route_info as  a , test.route_info as b where 
+ a.origin='Banglore' and b.destination='Delhi' and a.destination=b.origin
+ 
+ 19)    PROBLEM 3: HOW MANY MONORAILS DOES EACH DRIVE:
+ Provide all employee names (â€œenameâ€) along with status on whether they are driving monorail or not (Y/N) and also the number of monorails driving (0 if they are not driving monorail).
+
+Note: The format of output should be like below
+
+Raheem N 0
+
+Nusrat Y 3
+
+
+select distinct e.eid , case when b.rid is not null then 'Y' else 'N' end as flag, isnull(b.cnt,0)
+from test.employee as e left outer join (
+select a.eid,a.rid,count(*) over (partition by a.eid) as cnt
+from test.assignment  as a )as b
+ on e.eid=b.eid
+
+20) PROBLEM 4: CHEAPEST ROUTE TO DESTINATION:
+ 
+List all the route destination along with their route_no of the cheapest route to that destination from any origin. Output should have three column: destination, route_no and cost of the route.
+
+select * from (
+select destination, route_no,cost, rank() over (partition by destination order by cost asc ) as rnk
+from test.route_info
+) as s where s.rnk=1
+
+
+21) PROBLEM 5: TOP PAID DRIVERS:
+ 
+
+List all the monorails along with the top 2 paid (salary ranked 1st or 2nd) drivers of each monorail. The output should have four columns: the name of the monorail (rname), the salary ranking in the drivers of same monorail, the name of the driver (ename), the driverâ€™s salary (salary).
+
+select * from (
+select m.rname,e.salary,e.ename, rank() over (partition by m.rname order by e.salary desc ) as rnk
+from test.monorail as m  join test.assignment as a on m.rid=a.rid
+join test.employee as e on e.eid=a.eid) as t
+where rnk=1
+
+--order_daily_increment
+
+with cust as
+(
+select cust_id, year(order_day) as yr from test.orders_hist
+)-- to get all the customers by year
+
+
+select a.snapshot_DAY , 
+(case when b.CUST_id is null  then a.cust_id 
+when b.CUST_id is not null and  year(a.snapshot_DAY)-1 = b.yr then a.CUST_id end ) as newcust,
+(case when b.CUST_id is not null and year(a.snapshot_DAY)-1 != b.yr then a.CUST_id end ) as reactivatedcust
+from test.Orders_daily_increment as a left outer join cust as b
+on a.cust_id=b.cust_id 
+--Need aggregate function and count(*) 
+select top 1 max(salary * months) as max_earning, count (*) from employee group by  (salary * months) order by max_earning desc 
+
+
+
+22) Of all the products available in the “books” category, what percentage were ordered in the last 3 months?
+Select count(*)/count(case when order_date >= dateadd(day,-90,getdate() then 1 else 0) 
+From order
+Where category = ‘books’
+
+
+23) Names of customers who ordered more than 3 books in the last 3 months
+select c.customer_name 
+from orders o, customer c, products p
+where 
+p.product_category = 'books' and o.order_date >= dateadd(day,-90,getdate())
+and o.product_id = p.product_id
+and o.customer_id = c.customer_id
+group by customer_name
+having count(order_id) > 3
+
+
+24) All unique book names that were delivered to Seattle (assume address field has city name)
+select distinct product_name from products p, orders o , customer c
+where c.customer_address like '%seattle%'
+and product_category = 'books'
+and o.product_id = p.product_id
+and o.customer_id = c.customer_id
+
+
+25) List of 5 most expensive products which have not had any orders in the last 90 days
+select top 5 product_name from products where product_id in (
+select distinct product_id from products
+except 
+select distinct product_id from orders
+where order_date >= dateadd(day,-90,getdate()))
+order by product_price desc
+
+select product_name
+from product
+where product not exists in
+(
+(select product_name from
+Order inner join customer
+Where order.order_id = customer.customer_id)
+
+
+26) The top 100 top selling products in each of these categories: books, electronics, appliances
+Select count(order_id), product_name
+From orders where product in (‘books’, ‘electronics’, ‘appliances’)
+Group by product_name
+Order by count(order_id) desc
 
